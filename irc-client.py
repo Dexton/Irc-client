@@ -1,17 +1,19 @@
+from sys import exit
+
 class start():
     def __init__(self):
         print "Welcome to Mega Irc Client 5000"
+        host = raw_input("\nType host name: ")
     
     def live(self):
         while True:
-            i = 0
-            print i
-            line = None
-            line = input()
+            line = raw_input()
             if line == "exit":
-                pass
+                break 
             print line
-            i += 1
+
+    def die(self):
+        exit()
 
 s = start()
 s.live()
