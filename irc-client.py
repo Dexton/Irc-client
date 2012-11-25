@@ -1,5 +1,6 @@
 from sys import exit
-import socket, threading, datetime
+import socket, threading, datetime, select, sys
+import os
 
 class start():
     #Members
@@ -9,27 +10,65 @@ class start():
     nick = "Banzaii"
     identity = "Brans"
     realname = "Grettir"
+    channel = None
+
     #Initiate a connection
     def __init__(self):
         print "Welcome to Mega Irc Client 5000"
+        print "**** Press ENTER to write commands ****"
         self.connect()
         self.ident()
         self.live()
 
     #Keep the connection alive
     def live(self):
+        i = 0
         while True:
-            msg = ""
-            while True:
-                part = self.sock.recv(4096)
-                msg += part
-                if part.endswith("\r\n"):
-                    break
-            print msg
-            self.log("server", msg)
-            command = raw_input()
-            if command == "exit":
-                self.die()
+            r,w,e = select.select([sys.stdin, self.sock],[],[],1)
+            for c in r:
+                if isinstance(c, socket.socket):
+                    msg = self.sock.recv(4096)
+                    self.log("server", msg)
+                    if "PING :" in msg:
+                        self.pong()
+                    elif " PRIVMSG " in msg:
+                        pieces = msg.splitlines()
+                        for p in pieces:
+                            tub = p.partition(':')
+                            rest = tub[2]
+                            tub = rest.partition('!')
+                            sender = tub[0]
+                            rest = tub[2]
+                            tub = rest.partition(' ')
+                            rest = tub[2]
+                            tub = rest.partition(' ')
+                            rest = tub[2]
+                            tub = rest.partition(' :')
+                            recvr = tub[0]
+                            text = tub[2]
+                            print '{' + sender + '}' + '@' + recvr + ': ' + text
+                    else:
+                        print msg
+
+
+                else:
+                    print "Enter command with / or say something in channel"
+                    raw_input()
+                    command = raw_input()
+                    if command.startswith('/'):
+                        if "/exit" in command:
+                            print command
+                            self.die()
+                        elif "/join" in command:
+                            print command
+                            self.joinChannel(command[6:])
+                        elif "/part" in command:
+                            print command
+                            self.leaveChannel()
+                        else:
+                            print "No such command available"
+                    elif self.channel:
+                        self.say(command)
     #Quit
     def die(self):
         self.sock.send("QUIT \r\n")
@@ -46,7 +85,7 @@ class start():
         msg = self.sock.recv(1024)
         print msg
         self.log("server", msg)
-        command = "NICK %s\r\n" % self.nick 
+        command = "NICK %s\r\n" % self.nick
         self.sock.send(command)
         print command
         self.log("client", command)
@@ -71,6 +110,43 @@ class start():
             print command
             self.log("client", command)
             exit()
+
+    def changeNick(self, newnick):
+        self.nick = newnick
+        command = "NICK %s\r\n" % self.nick 
+        self.sock.send(command)
+        print command 
+        self.log("client", command)
+
+    def pong(self):
+        msg = "PONG : Pong\r\n"
+        self.sock.send(msg)
+        print msg
+        self.log("client", msg)
+
+    def joinChannel(self, channelName):
+        command = "JOIN " + channelName + "\r\n"
+        self.sock.send(command)
+        print command
+        self.log("client", command)
+        self.channel = channelName
+
+    def leaveChannel(self):
+        command = "PART %s\r\n" % self.channel
+        self.sock.send(command)
+        print command
+        self.log("client", command)
+        self.channel = None
+
+    def say(self, message, receiver=None):
+        if not receiver:
+            receiver = self.channel
+        command = "PRIVMSG " + receiver + " : " + message + "\r\n"
+        self.sock.send(command)
+        print "@" + receiver + "[" + self.nick + "]" + " : " + message 
+        self.log("client", command)
+
+
     #Logging
     def log(self,source,msg):
         f = open("irc.log", "a+")
@@ -78,4 +154,8 @@ class start():
         f.write(s)
         f.close()
 
-s = start()
+if "posix" in os.name:
+    s = start()
+else:
+    print "This client only works on linux"
+    exit()
