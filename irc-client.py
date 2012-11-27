@@ -15,25 +15,29 @@ class start():
     #Initiate a connection
     def __init__(self):
         print "Welcome to Mega Irc Client 5000"
-        print "**** Press ENTER to write commands ****"
         self.connect()
         self.ident()
+        print "**** Press ENTER to write commands ****"
         self.live()
 
     #Keep the connection alive
     def live(self):
         i = 0
         while True:
+            #Check for input in the pipes
             r,w,e = select.select([sys.stdin, self.sock],[],[],1)
             for c in r:
                 if isinstance(c, socket.socket):
+                    #Deal with in coming data in socket
                     msg = self.sock.recv(4096)
                     self.log("server", msg)
                     if "PING :" in msg:
                         self.pong()
                     elif " PRIVMSG " in msg:
+                        #Chop up and format private messages
                         pieces = msg.splitlines()
                         for p in pieces:
+                            #ChopChop
                             tub = p.partition(':')
                             rest = tub[2]
                             tub = rest.partition('!')
@@ -46,16 +50,20 @@ class start():
                             tub = rest.partition(' :')
                             recvr = tub[0]
                             text = tub[2]
+                            #Slap it back together
                             print '{' + sender + '}' + '@' + recvr + ': ' + text
                     else:
+                        #Print messages from server to the user
                         print msg
 
 
                 else:
+                    #Handle data from stdin
                     print "Enter command with / or say something in channel"
                     raw_input()
                     command = raw_input()
                     if command.startswith('/'):
+                        #Handle as if a command from user
                         if "/exit" in command:
                             print command
                             self.die()
@@ -68,6 +76,7 @@ class start():
                         else:
                             print "No such command available"
                     elif self.channel:
+                        #Handle as message to channel
                         self.say(command)
     #Quit
     def die(self):
@@ -82,6 +91,7 @@ class start():
 
     #Messages
     def ident(self):
+        #Identify self to server
         msg = self.sock.recv(1024)
         print msg
         self.log("server", msg)
@@ -98,6 +108,7 @@ class start():
         self.log("server", command)
 
     def connect(self):
+        #Establis a connection to server
         self.host = raw_input("\nType host name: ")
         self.sock = socket.socket()
         command = "Connecting to %s" % self.host
@@ -149,6 +160,7 @@ class start():
 
     #Logging
     def log(self,source,msg):
+        #Handle the logging needed
         f = open("irc.log", "a+")
         s = str(datetime.datetime.now()) + " : " + source + " : " + msg
         f.write(s)
